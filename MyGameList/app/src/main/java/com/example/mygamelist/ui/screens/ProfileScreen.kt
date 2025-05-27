@@ -12,10 +12,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,9 +42,12 @@ import com.example.mygamelist.data.model.User
 fun ProfileScreen(
     user: User,
     userGames: List<Game>,
+    onNavigateToSettings: (initialTabIndex: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
+
+    var showProfileMenu by remember { mutableStateOf(false) }
 
 
     val visibleGames = remember(userGames, searchQuery) {
@@ -77,12 +84,47 @@ fun ProfileScreen(
                 Text(user.name, color = Color.White, fontSize = 20.sp)
                 Text("@${user.username}", color = Color.LightGray, fontSize = 14.sp)
             }
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "Opções",
-                tint = Color.LightGray,
-                modifier = Modifier.size(24.dp)
-            )
+            Box {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert, // Alterado para Icons.Filled para consistência M3
+                    contentDescription = "Opções do perfil",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { showProfileMenu = true } // Abre o menu
+                )
+                DropdownMenu(
+                    expanded = showProfileMenu,
+                    onDismissRequest = { showProfileMenu = false } // Fecha o menu ao clicar fora
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Editar perfil") },
+                        onClick = {
+                            onNavigateToSettings(0)
+                            showProfileMenu = false
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Edit,
+                                contentDescription = "Editar perfil"
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Baixar minha lista") },
+                        onClick = {
+
+                            showProfileMenu = false
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.FileDownload, // Ícone de download
+                                contentDescription = "Baixar minha lista"
+                            )
+                        }
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(8.dp))

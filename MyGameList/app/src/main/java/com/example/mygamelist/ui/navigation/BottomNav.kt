@@ -18,17 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.navArgument
 import com.example.mygamelist.R
 import com.example.mygamelist.data.model.sampleGames
 import com.example.mygamelist.data.model.sampleUser
-import com.example.mygamelist.ui.screens.AddGameScreen
-import com.example.mygamelist.ui.screens.CommunityScreen
-import com.example.mygamelist.ui.screens.HomeScreen
-import com.example.mygamelist.ui.screens.NotificationsScreen
-import com.example.mygamelist.ui.screens.ProfileScreen
+import com.example.mygamelist.ui.screens.*
 
 sealed class Screen(val route: String, val icon: Int) {
     object Home : Screen("home", R.drawable.ic_castle)
@@ -36,6 +34,7 @@ sealed class Screen(val route: String, val icon: Int) {
     object Add : Screen("addgame", R.drawable.ic_add)
     object Notifications : Screen("notifications", R.drawable.ic_notifications)
     object Profile : Screen("profile", R.drawable.avatar_placeholder)
+    object Settings : Screen("settings", R.drawable.avatar_placeholder)
 }
 
 @Composable
@@ -51,7 +50,17 @@ fun MyGameListNavHost(navController: NavHostController, padding: PaddingValues) 
             AddGameScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.Notifications.route) { NotificationsScreen() }
-        composable(Screen.Profile.route) { ProfileScreen(sampleUser, sampleGames) }
+        composable(Screen.Profile.route) { ProfileScreen(sampleUser, sampleGames, onNavigateToSettings = {tab -> navController.navigate("${Screen.Settings.route}/$tab") }) }
+        composable(
+            route = "${Screen.Settings.route}/{tab}",
+            arguments = listOf(navArgument("tab") {
+                type = NavType.IntType
+                defaultValue = 0
+            })
+            ) {backStackEntry ->
+                val initialTabIndex = backStackEntry.arguments?.getInt("tab") ?: 0
+                SettingsScreen(tab = initialTabIndex)
+        }
     }
 }
 
@@ -67,7 +76,7 @@ fun BottomNavigationBar(navController: NavHostController) {
     val currentRoute by navController.currentBackStackEntryAsState()
 
     // Oculta a barra se a rota for a tela de adicionar jogo
-    if (currentRoute?.destination?.route == Screen.Add.route) return
+    if (currentRoute?.destination?.route == Screen.Add.route || currentRoute?.destination?.route == "${Screen.Settings.route}/{tab}") return
 
     Row(
         modifier = Modifier

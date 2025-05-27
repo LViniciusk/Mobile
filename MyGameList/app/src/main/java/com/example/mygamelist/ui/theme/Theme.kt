@@ -1,24 +1,35 @@
 package com.example.mygamelist.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF1F1F1F),
-    onPrimary = Color.White,
-    secondary = Color(0xFFBB86FC),
-    onSecondary = Color.Black,
-    background = Color(0xFF121212),
-    surface = Color(0xFF1F1F1F),
-    onSurface = Color.White
-)
+enum class ThemePreference {
+    LIGHT, DARK, SYSTEM
+}
+
 
 @Composable
 fun MyGameListTheme(content: @Composable () -> Unit) {
+
+    val systemIsDark = isSystemInDarkTheme()
+
+    //val useDarkTheme = when (currentPreference) {
+    //    ThemePreference.LIGHT -> false
+    //    ThemePreference.DARK -> true
+    //    ThemePreference.SYSTEM -> systemIsDark
+    //}
+
+    val colors = DarkColorScheme
+
+
+
+
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = colors,
         typography = androidx.compose.material3.Typography(),
         content = content
     )

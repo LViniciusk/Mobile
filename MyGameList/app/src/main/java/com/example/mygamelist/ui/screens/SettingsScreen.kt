@@ -36,6 +36,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,11 +51,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mygamelist.ui.theme.ThemePreference
+import com.example.mygamelist.viewmodel.ThemeViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(tab: Int) {
+fun SettingsScreen(tab: Int, themeViewModel: ThemeViewModel) {
     var selectedTabIndex by remember(tab) { mutableIntStateOf(tab) }
     val tabs = listOf("Perfil", "Configurações")
 
@@ -72,7 +74,7 @@ fun SettingsScreen(tab: Int) {
 
             when (selectedTabIndex) {
                 0 -> ProfilePageUi()
-                1 -> ConfigurationPageUi()
+                1 -> ConfigurationPageUi(themeViewModel = themeViewModel)
             }
         }
     }
@@ -110,7 +112,7 @@ fun ProfilePageUi() {
 }
 
 @Composable
-fun ConfigurationPageUi() {
+fun ConfigurationPageUi(themeViewModel: ThemeViewModel) {
     val email by remember { mutableStateOf("MyGameList@gmail.com") }
     val isEmailVerified by remember { mutableStateOf(true) }
 
@@ -122,9 +124,9 @@ fun ConfigurationPageUi() {
     var isConfirmNewPasswordVisible by remember { mutableStateOf(false) }
 
 
-    var selectedTheme by remember { mutableStateOf(ThemePreference.SYSTEM) }
+    val currentThemePreference by themeViewModel.themePreference.collectAsState()
 
-    val isEffectivelyDark = when (selectedTheme) {
+    val isEffectivelyDark = when (currentThemePreference) {
         ThemePreference.LIGHT -> false
         ThemePreference.DARK -> true
         ThemePreference.SYSTEM -> isSystemInDarkTheme()
@@ -225,13 +227,16 @@ fun ConfigurationPageUi() {
                     checked = isEffectivelyDark,
                     onCheckedChange = { isChecked ->
 
-                        selectedTheme = if (isChecked) ThemePreference.DARK else ThemePreference.LIGHT
+                        themeViewModel.setThemePreference(
+                            if (isChecked) ThemePreference.DARK else ThemePreference.LIGHT
+                        )
+
                     }
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
             TextButton(
-                onClick = { selectedTheme = ThemePreference.SYSTEM },
+                onClick = { themeViewModel.setThemePreference(ThemePreference.SYSTEM) },
                 modifier = Modifier.align(Alignment.Start)
             ) {
                 Text("Usar padrão do sistema")

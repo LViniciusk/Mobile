@@ -27,6 +27,7 @@ import com.example.mygamelist.R
 import com.example.mygamelist.data.model.sampleGames
 import com.example.mygamelist.data.model.sampleUser
 import com.example.mygamelist.ui.screens.*
+import com.example.mygamelist.viewmodel.ThemeViewModel
 
 sealed class Screen(val route: String, val icon: Int) {
     object Home : Screen("home", R.drawable.ic_castle)
@@ -38,7 +39,7 @@ sealed class Screen(val route: String, val icon: Int) {
 }
 
 @Composable
-fun MyGameListNavHost(navController: NavHostController, padding: PaddingValues) {
+fun MyGameListNavHost(navController: NavHostController, padding: PaddingValues, themeViewModel : ThemeViewModel ) {
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route,
@@ -59,7 +60,7 @@ fun MyGameListNavHost(navController: NavHostController, padding: PaddingValues) 
             })
             ) {backStackEntry ->
                 val initialTabIndex = backStackEntry.arguments?.getInt("tab") ?: 0
-                SettingsScreen(tab = initialTabIndex)
+                SettingsScreen(tab = initialTabIndex, themeViewModel = themeViewModel)
         }
     }
 }

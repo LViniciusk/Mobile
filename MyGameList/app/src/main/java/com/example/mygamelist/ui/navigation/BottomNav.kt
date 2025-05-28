@@ -45,7 +45,7 @@ fun MyGameListNavHost(navController: NavHostController, padding: PaddingValues, 
         startDestination = Screen.Home.route,
         modifier = Modifier.padding(padding)
     ) {
-        composable(Screen.Home.route) { HomeScreen(sampleGames) }
+        composable(Screen.Home.route) { HomeScreen(sampleGames, onNavigateToSettings = {tab -> navController.navigate("${Screen.Settings.route}/$tab") }) }
         composable(Screen.Community.route) { CommunityScreen() }
         composable(Screen.Add.route) {
             AddGameScreen(onBack = { navController.popBackStack() })
@@ -76,7 +76,7 @@ fun BottomNavigationBar(navController: NavHostController) {
     )
     val currentRoute by navController.currentBackStackEntryAsState()
 
-    // Oculta a barra se a rota for a tela de adicionar jogo
+
     if (currentRoute?.destination?.route == Screen.Add.route || currentRoute?.destination?.route == "${Screen.Settings.route}/{tab}") return
 
     Row(

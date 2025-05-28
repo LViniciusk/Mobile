@@ -2,6 +2,8 @@ package com.example.mygamelist.ui.screens
 
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -44,12 +47,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.mygamelist.R
 import com.example.mygamelist.ui.theme.ThemePreference
 import com.example.mygamelist.viewmodel.ThemeViewModel
 
@@ -82,34 +89,122 @@ fun SettingsScreen(tab: Int, themeViewModel: ThemeViewModel) {
 
 @Composable
 fun ProfilePageUi() {
+    val username by remember { mutableStateOf("LViniciusk") }
+    var displayName by remember { mutableStateOf("LViniciusk") }
+    var bio by remember { mutableStateOf("Jalp") }
+    val profileImagePainter = painterResource(id = R.drawable.avatar_placeholder)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.Top
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Text(
-            "Editar Perfil",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        OutlinedTextField(
-            value = "",
-            onValueChange = {},
-            label = { Text("Nome de Usuário") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = "",
-            onValueChange = {},
-            label = { Text("Citação") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Image(
+                painter = profileImagePainter,
+                contentDescription = "Foto do perfil",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(98.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Recomenda-se usar uma imagem com pelo menos 98x98 pixels e 2MB ou menos. Use um arquivo PNG ou JPG.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = { /* lalala */ }) {
+                    Text("Alterar imagem")
+                }
+                TextButton(onClick = { /* lalala */ }) {
+                    Text("Remover", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+        Divider()
 
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+            Text("Nome de usuário", style = MaterialTheme.typography.labelLarge)
+            Text(
+                username,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            )
+            Text(
+                "Seu nome de usuário é exclusivo para sua conta e aparece na sua página de perfil e na sua URL. Não é o seu endereço de email.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Divider()
+
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+            Text("Nome de exibição", style = MaterialTheme.typography.labelLarge)
+            OutlinedTextField(
+                value = displayName,
+                onValueChange = { displayName = it },
+                label = { Text("Seu nome de exibição") },
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp),
+                singleLine = true
+            )
+            Text(
+                "É seperado de seu nome de usuário, pode ser seu nick de qualquer jogo, nome comercial ou seu nome real e é mostrado ao lado do seu nome de usuário.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Divider()
+
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+            Text("Bio", style = MaterialTheme.typography.labelLarge)
+            OutlinedTextField(
+                value = bio,
+                onValueChange = { bio = it },
+                label = { Text("Sua bio") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .padding(top = 4.dp, bottom = 4.dp),
+                singleLine = false,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+            )
+            Text(
+                "Algo sobre você em menos de 85 caracteres.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Divider()
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(onClick = {
+                displayName = "LViniciusk"
+                bio = "Jalp"
+            }) {
+                Text("Redefinir")
+            }
+            Spacer(Modifier.width(12.dp))
+            Button(onClick = { /* lalala */ }) {
+                Text("Salvar")
+            }
+        }
     }
 }
+
 
 @Composable
 fun ConfigurationPageUi(themeViewModel: ThemeViewModel) {
@@ -150,14 +245,12 @@ fun ConfigurationPageUi(themeViewModel: ThemeViewModel) {
                     Icon(
                         imageVector = Icons.Filled.CheckCircle,
                         contentDescription = "Verificado",
-                        tint = Color(0xFF2E2E2E),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         "Email verificado",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF2E2E2E)
                     )
                 }
             }
@@ -244,7 +337,6 @@ fun ConfigurationPageUi(themeViewModel: ThemeViewModel) {
         }
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-        // Seção de Ações da Conta
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = { /* lalala */ },

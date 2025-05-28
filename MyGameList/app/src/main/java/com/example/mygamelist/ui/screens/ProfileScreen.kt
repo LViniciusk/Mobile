@@ -86,16 +86,16 @@ fun ProfileScreen(
             }
             Box {
                 Icon(
-                    imageVector = Icons.Filled.MoreVert, // Alterado para Icons.Filled para consistência M3
+                    imageVector = Icons.Filled.MoreVert,
                     contentDescription = "Opções do perfil",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(24.dp)
-                        .clickable { showProfileMenu = true } // Abre o menu
+                        .clickable { showProfileMenu = true }
                 )
                 DropdownMenu(
                     expanded = showProfileMenu,
-                    onDismissRequest = { showProfileMenu = false } // Fecha o menu ao clicar fora
+                    onDismissRequest = { showProfileMenu = false }
                 ) {
                     DropdownMenuItem(
                         text = { Text("Editar perfil") },
@@ -118,7 +118,7 @@ fun ProfileScreen(
                         },
                         leadingIcon = {
                             Icon(
-                                imageVector = Icons.Filled.FileDownload, // Ícone de download
+                                imageVector = Icons.Filled.FileDownload,
                                 contentDescription = "Baixar minha lista"
                             )
                         }

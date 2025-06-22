@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,24 +52,28 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.mygamelist.R
 import com.example.mygamelist.data.model.Game
+import com.example.mygamelist.viewmodel.HomeViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    recentGames: List<Game>,
     onNavigateToSettings: (initialTabIndex: Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -100,6 +105,7 @@ fun HomeScreen(
                     .padding(innerPadding)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .background(MaterialTheme.colorScheme.background)
             ) {
                 WelcomeBanner(
                     modifier = Modifier.fillMaxWidth()
@@ -114,15 +120,45 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Spacer(Modifier.height(12.dp))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(recentGames) { game ->
-                            NewReleaseItem(game)
+
+                    when {
+                        uiState.isLoading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        uiState.error != null -> {
+                            Text(
+                                text = "Erro ao carregar novos lançamentos: ${uiState.error}",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        uiState.newReleaseGames.isEmpty() -> {
+                            Text(
+                                text = "Nenhum novo lançamento encontrado.",
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        else -> {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(uiState.newReleaseGames) { game ->
+                                    ShowGameItem(game)
+                                }
+                            }
                         }
                     }
 
-                    Spacer(Modifier.height(12.dp))
+
+                    Spacer(Modifier.height(24.dp))
 
                     Text(
                         text = "Em Breve",
@@ -133,17 +169,16 @@ fun HomeScreen(
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(recentGames) { game ->
-                            NewReleaseItem(game)
+                        items(uiState.comingSoonGames) { game ->
+                            ShowGameItem(game)
                         }
                     }
                 }
-
-
             }
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -153,9 +188,9 @@ fun AppDrawerContent(
 ) {
     val context = LocalContext.current
     ModalDrawerSheet(
-        modifier = Modifier.fillMaxWidth(0.7f)
+        modifier = Modifier.fillMaxWidth(0.7f),
+        drawerContainerColor = MaterialTheme.colorScheme.surface
     ) {
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -176,30 +211,39 @@ fun AppDrawerContent(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        Divider()
+        Divider(color = MaterialTheme.colorScheme.outline)
         Spacer(Modifier.height(16.dp))
         NavigationDrawerItem(
-            icon = { Icon(Icons.Filled.Settings, contentDescription = "Configurações") },
-            label = { Text("Configurações") },
+            icon = { Icon(Icons.Filled.Settings, contentDescription = "Configurações", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            label = { Text("Configurações", color = MaterialTheme.colorScheme.onSurface) },
             selected = false,
             onClick = {
                 onNavigateToSettings(1)
             },
-            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+            colors = NavigationDrawerItemDefaults.colors(
+                unselectedContainerColor = MaterialTheme.colorScheme.surface,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         )
 
         NavigationDrawerItem(
-            icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sair") },
-            label = { Text("Sair") },
+            icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sair", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            label = { Text("Sair", color = MaterialTheme.colorScheme.onSurface) },
             selected = false,
             onClick = {
                 onCloseDrawer()
                 val activity = (context as? Activity)
                 activity?.finishAffinity()
             },
-            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-         )
-
+            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+            colors = NavigationDrawerItemDefaults.colors(
+                unselectedContainerColor = MaterialTheme.colorScheme.surface,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
         Spacer(Modifier.height(16.dp))
     }
 }
@@ -211,14 +255,20 @@ fun MyGameListTopAppBar(
     onOpenDrawer: () -> Unit
 ) {
     TopAppBar(
-        title = {Text("MyGameList", fontSize = 18.sp)
-        },
+        title = { Text("MyGameList", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface) },
         navigationIcon = {
             IconButton(onClick = onOpenDrawer) {
-                Icon(Icons.Filled.Menu, contentDescription = "Abrir Menu")
+                Icon(
+                    Icons.Filled.Menu,
+                    contentDescription = "Abrir Menu",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
         },
-        actions = { }
+        actions = { },
+        colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     )
 }
 
@@ -228,7 +278,6 @@ fun WelcomeBanner(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .height(400.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Image(
             painter = painterResource(id = R.drawable.backg),
@@ -251,8 +300,8 @@ fun WelcomeBanner(modifier: Modifier = Modifier) {
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.2f),
-                            Color.Black.copy(alpha = 0.85f)
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.2f),
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.85f)
                         ),
                         startY = 150f
                     )
@@ -269,7 +318,7 @@ fun WelcomeBanner(modifier: Modifier = Modifier) {
             Text(
                 text = "Organize sua coleção de jogos e avaliações pessoais em um só lugar e compartilhe com o mundo",
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.White.copy(alpha = 0.95f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.95f)
                 ),
                 lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.1
             )
@@ -278,16 +327,16 @@ fun WelcomeBanner(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun NewReleaseItem(game: Game) {
+private fun ShowGameItem(game: Game) {
     Card(
         modifier = Modifier
             .width(160.dp)
             .clip(RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column {
             AsyncImage(
-                model = game.imageUrl ?: R.drawable.ic_launcher_foreground,
+                model = game.imageUrl,
                 placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
                 error = painterResource(id = R.drawable.ic_launcher_foreground),
                 contentDescription = game.title,
@@ -302,18 +351,18 @@ private fun NewReleaseItem(game: Game) {
                 Text(
                     text = game.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = game.genre,
+                    text = game.genres ?: "Gênero Desconhecido",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = game.year,
+                    text = game.releaseYear ?: "Ano Desconhecido",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )

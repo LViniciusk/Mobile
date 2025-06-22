@@ -29,24 +29,13 @@ val sampleUser = User(
 )
 val sampleGames = listOf(
     Game(
-        id = 1,
-        title = "Outer Wilds",
-        genre = "Puzzle, Aventura",
-        year = "2019",
-        imageRes = R.drawable.ic_launcher_foreground,
-        status = GameStatus.COMPLETED,
-        rating = 10,
-        imageUrl = null
-    ),
-    Game(
         id = 2,
-        title = "Hades",
-        genre = "Roguelike, Ação",
-        year = "2020",
-        imageRes = R.drawable.ic_launcher_foreground,
+        title = "Outer",
         status = GameStatus.COMPLETED,
-        rating = 10,
-        imageUrl = null
+        imageUrl = "https://assets.nintendo.com/image/upload/c_fill,w_1200/q_auto:best/f_auto/dpr_2.0/ncom/software/switch/70010000038712/f82902db3c1f0b19b1e00c324aba9509c0f9ebec784bcd249e21cffc39151a4e",
+        releaseYear = "2016",
+        metacriticRating = 100,
+        genres = "Generos genericos :D"
     )
 )
 

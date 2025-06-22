@@ -12,9 +12,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,19 +28,24 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.mygamelist.R
-import com.example.mygamelist.data.api.RetrofitClient
-import com.example.mygamelist.data.model.GameResult
-import kotlinx.coroutines.launch
+import com.example.mygamelist.viewmodel.GameUiState
+import com.example.mygamelist.viewmodel.GameViewModel
+
+
 
 @Composable
-fun AddGameScreen(onBack: () -> Unit) {
+fun AddGameScreen(
+    onBack: () -> Unit,
+    viewModel: GameViewModel = viewModel()
+) {
+
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
-    var results by remember { mutableStateOf<List<GameResult>>(emptyList()) }
-    val gameCache = remember { mutableStateMapOf<String, List<GameResult>>() }
-    val coroutineScope = rememberCoroutineScope()
-    val apiKey = "84f487f7f7ce4190a0911d867db3c1ef"
+
+
+    val uiState = viewModel.uiState.value
 
     Column(
         modifier = Modifier
@@ -64,9 +70,7 @@ fun AddGameScreen(onBack: () -> Unit) {
                     tint = Color.Gray
                 )
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -80,32 +84,20 @@ fun AddGameScreen(onBack: () -> Unit) {
                     value = searchQuery,
                     onValueChange = {
                         searchQuery = it
-                        val query = it.text.trim().lowercase()
-                        if (query.length >= 3) {
-                            if (gameCache.containsKey(query)) {
-                                results = gameCache[query] ?: emptyList()
-                            } else {
-                                coroutineScope.launch {
-                                    try {
-                                        val response = RetrofitClient.api.searchGames(apiKey, query).results
-                                        gameCache[query] = response
-                                        results = response
-                                    } catch (_: Exception) {
-                                        results = emptyList()
-                                    }
-                                }
-                            }
-                        }
+                        viewModel.onSearchQueryChanged(it.text)
                     },
                     singleLine = true,
-                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                    cursorBrush = SolidColor(Color.White),
+                    textStyle = TextStyle(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier.weight(1f),
                     decorationBox = { innerTextField ->
                         if (searchQuery.text.isEmpty()) {
                             Text(
                                 text = "Pesquise por um jogo...",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 14.sp
                             )
                         }
@@ -119,52 +111,93 @@ fun AddGameScreen(onBack: () -> Unit) {
                     modifier = Modifier.size(20.dp)
                 )
             }
+
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        if (searchQuery.text.isEmpty()) {
-            PlaceholderSearch()
-        } else {
+        if (!searchQuery.text.isEmpty()){
             Text(
                 text = "Resultados para \"${searchQuery.text}\"",
-                color = Color.LightGray,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(results) { game ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsyncImage(
-                            model = game.background_image,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(game.name, color = Color.White, fontSize = 14.sp)
-                            Text(
-                                game.genres.joinToString { it.name },
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
-                            Text(game.released ?: "-", color = Color.DarkGray, fontSize = 12.sp)
-                        }
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Adicionar",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
+        }
+
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            when (uiState) {
+                is GameUiState.Idle -> {
+                    if (searchQuery.text.length < 3) {
+                        PlaceholderSearch()
                     }
+                }
+                is GameUiState.Loading -> {
+                    CircularProgressIndicator()
+                }
+                is GameUiState.Success -> {
+                    val games = uiState.games
+                    if (games.isEmpty()) {
+                        Text(
+                            text = "Nenhum resultado encontrado para \"${searchQuery.text}\"",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(games) { game ->
+                                GameResultItem(game)
+                            }
+                        }
+                    }
+                }
+                is GameUiState.Error -> {
+                    Text(
+                        text = uiState.message,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }
+    }
+}
+
+
+@Composable
+private fun GameResultItem(game: com.example.mygamelist.data.model.GameResult) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = game.background_image,
+            contentDescription = null,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(8.dp))
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(game.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+            Text(
+                game.genres!!.joinToString { it.name },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                maxLines = 1
+            )
+            Text(game.released ?: "-", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+        }
+        Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = "Adicionar",
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .size(24.dp)
+                .clickable { /* TODO: Lógica para adicionar o jogo */ }
+        )
     }
 }
 
@@ -183,4 +216,3 @@ private fun PlaceholderSearch() {
         }
     }
 }
-

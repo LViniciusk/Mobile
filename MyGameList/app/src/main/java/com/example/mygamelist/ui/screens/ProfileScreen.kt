@@ -27,13 +27,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.mygamelist.R
 import com.example.mygamelist.data.model.Game
 import com.example.mygamelist.data.model.User
@@ -46,9 +47,7 @@ fun ProfileScreen(
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
-
     var showProfileMenu by remember { mutableStateOf(false) }
-
 
     val visibleGames = remember(userGames, searchQuery) {
         if (searchQuery.text.isBlank()) userGames
@@ -63,14 +62,12 @@ fun ProfileScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
-
-
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(Color.DarkGray),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -81,8 +78,8 @@ fun ProfileScreen(
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(user.name, color = Color.White, fontSize = 20.sp)
-                Text("@${user.username}", color = Color.LightGray, fontSize = 14.sp)
+                Text(user.name, color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp)
+                Text("@${user.username}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             }
             Box {
                 Icon(
@@ -98,7 +95,7 @@ fun ProfileScreen(
                     onDismissRequest = { showProfileMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Editar perfil") },
+                        text = { Text("Editar perfil", color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
                             onNavigateToSettings(0)
                             showProfileMenu = false
@@ -106,20 +103,21 @@ fun ProfileScreen(
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Edit,
-                                contentDescription = "Editar perfil"
+                                contentDescription = "Editar perfil",
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Baixar minha lista") },
+                        text = { Text("Baixar minha lista", color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
-
                             showProfileMenu = false
                         },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.FileDownload,
-                                contentDescription = "Baixar minha lista"
+                                contentDescription = "Baixar minha lista",
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     )
@@ -129,23 +127,20 @@ fun ProfileScreen(
 
         Spacer(Modifier.height(8.dp))
 
-
         Row {
-            Text("Seguindo ${user.stats.playing}", color = Color.LightGray, fontSize = 14.sp)
+            Text("Seguindo ${user.stats.playing}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             Spacer(Modifier.width(24.dp))
-            Text("Seguidores ${user.stats.finished}", color = Color.LightGray, fontSize = 14.sp)
+            Text("Seguidores ${user.stats.finished}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
 
         Spacer(Modifier.height(16.dp))
 
-
         Text(
             text = user.quote,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             modifier = Modifier.padding(vertical = 8.dp)
         )
-
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -170,13 +165,12 @@ fun ProfileScreen(
 
         Spacer(Modifier.height(16.dp))
 
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(42.dp)
                 .clip(RoundedCornerShape(50))
-                .border(1.dp, Color.Gray, RoundedCornerShape(50))
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50))
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -184,14 +178,14 @@ fun ProfileScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 singleLine = true,
-                textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                cursorBrush = SolidColor(Color.White),
+                textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier = Modifier.weight(1f),
                 decorationBox = { inner ->
                     if (searchQuery.text.isEmpty()) {
                         Text(
                             text = "Pesquisar na lista...",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp
                         )
                     }
@@ -201,13 +195,12 @@ fun ProfileScreen(
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "Pesquisar",
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
         }
 
         Spacer(Modifier.height(16.dp))
-
 
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -216,19 +209,22 @@ fun ProfileScreen(
             items(visibleGames) { game ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1F1F1F)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            painter = painterResource(id = game.imageRes),
+                        AsyncImage(
+                            model = game.imageUrl,
                             contentDescription = game.title,
                             modifier = Modifier
                                 .size(80.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop,
+                            placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
+                            error = painterResource(id = R.drawable.ic_launcher_foreground)
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -236,12 +232,12 @@ fun ProfileScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF3C3C3C))
+                                        .background(MaterialTheme.colorScheme.primaryContainer)
                                         .padding(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = game.rating.toString(),
-                                        color = Color.Cyan,
+                                        text = game.metacriticRating?.toString() ?: "N/A",
+                                        color = MaterialTheme.colorScheme.tertiary,
                                         fontSize = 12.sp
                                     )
                                 }
@@ -250,25 +246,24 @@ fun ProfileScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF0050A0))
+                                        .background(MaterialTheme.colorScheme.primaryContainer)
                                         .padding(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
-
                                     Text(
                                         text = game.status.toString(),
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         fontSize = 12.sp
                                     )
                                 }
                             }
-                            Text(game.title, color = Color.White, fontSize = 16.sp)
-                            Text(game.genre, color = Color.Gray, fontSize = 12.sp)
-                            Text(game.year, color = Color.Gray, fontSize = 12.sp)
+                            Text(game.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
+                            Text(game.genres ?: "Gênero Desconhecido", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            Text(game.releaseYear ?: "Ano Desconhecido", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         }
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = "Mais",
-                            tint = Color.LightGray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(20.dp)
                                 .clickable { /* editar jogo */ }
@@ -284,12 +279,12 @@ fun ProfileScreen(
 private fun StatusChip(label: String, count: Int) {
     Box(
         modifier = Modifier
-            .background(Color(0xFF2E2E2E), RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(
             text = "$label: $count",
-            color = Color.LightGray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp
         )
     }

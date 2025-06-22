@@ -22,6 +22,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.navigation.navArgument
 import com.example.mygamelist.R
 import com.example.mygamelist.data.model.sampleGames
@@ -45,7 +47,7 @@ fun MyGameListNavHost(navController: NavHostController, padding: PaddingValues, 
         startDestination = Screen.Home.route,
         modifier = Modifier.padding(padding)
     ) {
-        composable(Screen.Home.route) { HomeScreen(sampleGames, onNavigateToSettings = {tab -> navController.navigate("${Screen.Settings.route}/$tab") }) }
+        composable(Screen.Home.route) { HomeScreen(onNavigateToSettings = {tab -> navController.navigate("${Screen.Settings.route}/$tab") }) }
         composable(Screen.Community.route) { CommunityScreen() }
         composable(Screen.Add.route) {
             AddGameScreen(onBack = { navController.popBackStack() })
@@ -74,27 +76,46 @@ fun BottomNavigationBar(navController: NavHostController) {
         Screen.Notifications,
         Screen.Profile
     )
-    val currentRoute by navController.currentBackStackEntryAsState()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-
-    if (currentRoute?.destination?.route == Screen.Add.route || currentRoute?.destination?.route == "${Screen.Settings.route}/{tab}") return
+    if (currentRoute == Screen.Add.route || currentRoute?.startsWith(Screen.Settings.route) == true) {
+        return
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(64.dp)
-            .background(MaterialTheme.colorScheme.surface),
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
         items.forEach { screen ->
+            val isSelected = currentRoute == screen.route
+
+            val iconColor = if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
             Image(
                 painter = painterResource(id = screen.icon),
                 contentDescription = null,
                 modifier = Modifier
                     .size(28.dp)
-                    .clickable { navController.navigate(screen.route) },
-                alignment = Alignment.Center
+                    .clickable {
+                        navController.navigate(screen.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                alignment = Alignment.Center,
+                colorFilter = ColorFilter.tint(iconColor)
             )
         }
     }

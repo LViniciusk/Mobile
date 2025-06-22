@@ -3,14 +3,13 @@ package com.example.mygamelist.data.model
 data class Game(
     val id: Int,
     val title: String,
-    val genre: String,
-    val year: String,
-    val imageRes: Int,
     val imageUrl: String?,
-    val rating: Int,
-    val status: GameStatus
+    val releaseYear: String?,
+    val metacriticRating: Int?,
+    val genres: String?,
+    val status: GameStatus = GameStatus.NONE,
 )
 
 enum class GameStatus {
-    ALL, COMPLETED, PLAYING, DROPPED, WANT
+    NONE, COMPLETED, PLAYING, DROPPED, WANT
 }

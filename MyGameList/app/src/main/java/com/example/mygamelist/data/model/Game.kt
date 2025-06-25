@@ -11,5 +11,5 @@ data class Game(
 )
 
 enum class GameStatus {
-    NONE, COMPLETED, PLAYING, DROPPED, WANT
+    NONE, CONCLUIDO, JOGANDO, ABANDONADO, DESEJO
 }

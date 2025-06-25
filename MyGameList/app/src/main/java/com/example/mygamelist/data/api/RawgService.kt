@@ -1,7 +1,6 @@
 package com.example.mygamelist.data.api
 
 import com.example.mygamelist.data.model.GameResponse
-import com.example.mygamelist.data.model.GameResult // Importe se GameResponse usar
 import retrofit2.http.GET
 import retrofit2.http.Query
 

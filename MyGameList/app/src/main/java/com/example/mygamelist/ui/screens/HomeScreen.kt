@@ -1,8 +1,10 @@
 package com.example.mygamelist.ui.screens
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,12 +20,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,9 +64,11 @@ import coil.compose.AsyncImage
 import com.example.mygamelist.R
 import com.example.mygamelist.data.model.Game
 import com.example.mygamelist.viewmodel.HomeViewModel
+import com.example.mygamelist.viewmodel.HomeUiEvent
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
 
 
@@ -74,6 +82,18 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(key1 = Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is HomeUiEvent.ShowToast -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -133,11 +153,24 @@ fun HomeScreen(
                             }
                         }
                         uiState.error != null -> {
-                            Text(
-                                text = "Erro ao carregar novos lançamentos: ${uiState.error}",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Erro ao carregar dados: ${uiState.error}",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                Button(onClick = { viewModel.loadAllGames() }) {
+                                    Text("Tentar Novamente")
+                                }
+                            }
                         }
                         uiState.newReleaseGames.isEmpty() -> {
                             Text(
@@ -145,18 +178,23 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                                 style = MaterialTheme.typography.bodyMedium
                             )
+                            Button(onClick = { viewModel.loadAllGames() }) {
+                                Text("Tentar Novamente")
+                            }
                         }
                         else -> {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(uiState.newReleaseGames) { game ->
-                                    ShowGameItem(game)
+
+                                    ShowGameItem(game) { clickedGame ->
+                                        viewModel.addGameToUserGames(clickedGame)
+                                    }
                                 }
                             }
                         }
                     }
-
 
                     Spacer(Modifier.height(24.dp))
 
@@ -166,11 +204,24 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Spacer(Modifier.height(12.dp))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(uiState.comingSoonGames) { game ->
-                            ShowGameItem(game)
+                    if (!uiState.isLoading && uiState.error == null && uiState.comingSoonGames.isEmpty()) {
+                        Text(
+                            text = "Nenhum jogo em breve encontrado.",
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Button(onClick = { viewModel.loadAllGames() }) {
+                            Text("Tentar Novamente")
+                        }
+                    } else if (!uiState.isLoading && uiState.error == null) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(uiState.comingSoonGames) { game ->
+                                ShowGameItem(game) { clickedGame ->
+                                    viewModel.addGameToUserGames(clickedGame)
+                                }
+                            }
                         }
                     }
                 }
@@ -327,7 +378,7 @@ fun WelcomeBanner(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ShowGameItem(game: Game) {
+private fun ShowGameItem(game: Game, onAddClick: (Game) -> Unit) {
     Card(
         modifier = Modifier
             .width(160.dp)
@@ -335,17 +386,36 @@ private fun ShowGameItem(game: Game) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column {
-            AsyncImage(
-                model = game.imageUrl,
-                placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
-                error = painterResource(id = R.drawable.ic_launcher_foreground),
-                contentDescription = game.title,
-                contentScale = ContentScale.Crop,
+            Box(
                 modifier = Modifier
                     .height(100.dp)
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-            )
+            ) {
+                AsyncImage(
+                    model = game.imageUrl,
+                    placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
+                    error = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentDescription = game.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                )
+
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Adicionar à lista",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(32.dp)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), CircleShape)
+                        .clickable { onAddClick(game) }
+                        .padding(4.dp)
+                )
+            }
+
             Spacer(Modifier.height(8.dp))
             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                 Text(

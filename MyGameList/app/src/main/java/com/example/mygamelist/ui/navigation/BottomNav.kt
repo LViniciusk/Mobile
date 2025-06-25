@@ -15,20 +15,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.navigation.navArgument
 import com.example.mygamelist.R
-import com.example.mygamelist.data.model.sampleGames
-import com.example.mygamelist.data.model.sampleUser
-import com.example.mygamelist.ui.screens.*
+import com.example.mygamelist.ui.screens.AddGameScreen
+import com.example.mygamelist.ui.screens.CommunityScreen
+import com.example.mygamelist.ui.screens.HomeScreen
+import com.example.mygamelist.ui.screens.NotificationsScreen
+import com.example.mygamelist.ui.screens.ProfileScreen
+import com.example.mygamelist.ui.screens.SettingsScreen
 import com.example.mygamelist.viewmodel.ThemeViewModel
 
 sealed class Screen(val route: String, val icon: Int) {
@@ -53,16 +56,16 @@ fun MyGameListNavHost(navController: NavHostController, padding: PaddingValues, 
             AddGameScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.Notifications.route) { NotificationsScreen() }
-        composable(Screen.Profile.route) { ProfileScreen(sampleUser, sampleGames, onNavigateToSettings = {tab -> navController.navigate("${Screen.Settings.route}/$tab") }) }
+        composable(Screen.Profile.route) { ProfileScreen(onNavigateToSettings = {tab -> navController.navigate("${Screen.Settings.route}/$tab") }) }
         composable(
             route = "${Screen.Settings.route}/{tab}",
             arguments = listOf(navArgument("tab") {
                 type = NavType.IntType
                 defaultValue = 0
             })
-            ) {backStackEntry ->
-                val initialTabIndex = backStackEntry.arguments?.getInt("tab") ?: 0
-                SettingsScreen(tab = initialTabIndex, themeViewModel = themeViewModel)
+        ) {backStackEntry ->
+            val initialTabIndex = backStackEntry.arguments?.getInt("tab") ?: 0
+            SettingsScreen(tab = initialTabIndex, themeViewModel = themeViewModel)
         }
     }
 }

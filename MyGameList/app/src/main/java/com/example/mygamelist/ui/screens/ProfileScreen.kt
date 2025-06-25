@@ -1,6 +1,6 @@
 package com.example.mygamelist.ui.screens
 
-import androidx.compose.foundation.Image
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -29,32 +30,79 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.mygamelist.R
-import com.example.mygamelist.data.model.Game
-import com.example.mygamelist.data.model.User
+import com.example.mygamelist.viewmodel.ProfileUiEvent
+import com.example.mygamelist.viewmodel.ProfileViewModel
 
 @Composable
 fun ProfileScreen(
-    user: User,
-    userGames: List<Game>,
     onNavigateToSettings: (initialTabIndex: Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
-    var showProfileMenu by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var searchQueryState by remember { mutableStateOf(TextFieldValue(uiState.searchQuery)) }
 
-    val visibleGames = remember(userGames, searchQuery) {
-        if (searchQuery.text.isBlank()) userGames
-        else userGames.filter {
-            it.title.contains(searchQuery.text, ignoreCase = true)
+    LaunchedEffect(uiState.searchQuery) {
+        if (searchQueryState.text != uiState.searchQuery) {
+            searchQueryState = searchQueryState.copy(text = uiState.searchQuery)
         }
     }
+
+
+    LaunchedEffect(key1 = Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is ProfileUiEvent.ShowToast -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    if (uiState.isLoading || uiState.user == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = "Carregando perfil...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.offset(y = 40.dp)
+            )
+        }
+        return
+    }
+
+    uiState.error?.let { errorMessage ->
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Erro: $errorMessage",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+        return
+    }
+
+    val user = uiState.user!!
+    val visibleGames = uiState.userGames
+
+    var showProfileMenu by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -70,10 +118,13 @@ fun ProfileScreen(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.avatar_placeholder),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize()
+                AsyncImage(
+                    model = user.avatarUrl,
+                    contentDescription = "Avatar do usuário",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.avatar_placeholder),
+                    error = painterResource(id = R.drawable.avatar_placeholder)
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -111,6 +162,7 @@ fun ProfileScreen(
                     DropdownMenuItem(
                         text = { Text("Baixar minha lista", color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
+                            viewModel.onDownloadListClick()
                             showProfileMenu = false
                         },
                         leadingIcon = {
@@ -128,9 +180,9 @@ fun ProfileScreen(
         Spacer(Modifier.height(8.dp))
 
         Row {
-            Text("Seguindo ${user.stats.playing}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Text("Seguindo ${user.followingCount}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             Spacer(Modifier.width(24.dp))
-            Text("Seguidores ${user.stats.finished}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Text("Seguidores ${user.followersCount}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
 
         Spacer(Modifier.height(16.dp))
@@ -147,19 +199,19 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             item {
-                StatusChip(label = "Todos", count = user.stats.all)
+                StatusChip(label = "Todos", count = user.stats.todos)
             }
             item {
-                StatusChip(label = "Concluído", count = user.stats.finished)
+                StatusChip(label = "Concluído", count = user.stats.concluidos)
             }
             item {
-                StatusChip(label = "Jogando", count = user.stats.playing)
+                StatusChip(label = "Jogando", count = user.stats.jogando)
             }
             item {
-                StatusChip(label = "Abandonado", count = user.stats.dropped)
+                StatusChip(label = "Abandonado", count = user.stats.abandonados)
             }
             item {
-                StatusChip(label = "Quero", count = user.stats.want)
+                StatusChip(label = "Desejo", count = user.stats.desejados)
             }
         }
 
@@ -175,18 +227,26 @@ fun ProfileScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             BasicTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
+                value = searchQueryState,
+                onValueChange = { newValue ->
+                    searchQueryState = newValue
+                    viewModel.onSearchQueryChanged(newValue.text)
+                },
                 singleLine = true,
-                textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp),
+                textStyle = TextStyle(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Start
+                ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 modifier = Modifier.weight(1f),
                 decorationBox = { inner ->
-                    if (searchQuery.text.isEmpty()) {
+                    if (uiState.searchQuery.isEmpty()) {
                         Text(
                             text = "Pesquisar na lista...",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 14.sp
+                            fontSize = 14.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Start
                         )
                     }
                     inner()

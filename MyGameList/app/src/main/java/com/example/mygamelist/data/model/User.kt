@@ -1,43 +1,25 @@
 package com.example.mygamelist.data.model
 
-import com.example.mygamelist.R
-
 data class User(
-    val id: String,
+    val id: Int,
     val name: String,
     val username: String,
     val quote: String,
     val stats: UserStats,
-    val avatarUrl: Int,
+    val avatarUrl: String?,
+    val userGames: List<Game>,
+    val followersCount: Int,
+    val followingCount: Int
 )
 
 data class UserStats(
-    val all: Int = 0,
-    val finished: Int = 0,
-    val playing: Int = 0,
-    val dropped: Int = 0,
-    val want: Int = 0
+    val todos: Int = 0,
+    val concluidos: Int = 0,
+    val jogando: Int = 0,
+    val abandonados: Int = 0,
+    val desejados: Int = 0
 )
 
-val sampleUser = User(
-    id = "1",
-    name = "LViniciusk",
-    username = "LViniciusk",
-    quote = "Cold is the void",
-    stats = UserStats(all = 5, finished = 2, playing = 1, dropped = 1, want = 1),
-    avatarUrl = R.drawable.ic_launcher_foreground
-)
-val sampleGames = listOf(
-    Game(
-        id = 2,
-        title = "Outer",
-        status = GameStatus.COMPLETED,
-        imageUrl = "https://assets.nintendo.com/image/upload/c_fill,w_1200/q_auto:best/f_auto/dpr_2.0/ncom/software/switch/70010000038712/f82902db3c1f0b19b1e00c324aba9509c0f9ebec784bcd249e21cffc39151a4e",
-        releaseYear = "2016",
-        metacriticRating = 100,
-        genres = "Generos genericos :D"
-    )
-)
 
 val UsersList = listOf(
     UserResult(

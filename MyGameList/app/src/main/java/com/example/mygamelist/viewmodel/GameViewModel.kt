@@ -1,14 +1,19 @@
 package com.example.mygamelist.viewmodel
 
-
-import com.example.mygamelist.data.model.GameResult
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mygamelist.data.api.RetrofitClient
+import com.example.mygamelist.data.model.GameResult
+import com.example.mygamelist.data.model.toDomainGame
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -25,7 +30,9 @@ sealed class GameUiState {
     data class Error(val message: String) : GameUiState()
 }
 
-
+sealed class GameUiEvent {
+    data class ShowToast(val message: String) : GameUiEvent()
+}
 
 @OptIn(FlowPreview::class)
 class GameViewModel : ViewModel() {
@@ -33,7 +40,10 @@ class GameViewModel : ViewModel() {
     private val _uiState = mutableStateOf<GameUiState>(GameUiState.Idle)
     val uiState: State<GameUiState> get() = _uiState
 
-    private val _searchQuery = MutableStateFlow("")
+    internal val _searchQuery = MutableStateFlow("")
+
+    private val _events = MutableSharedFlow<GameUiEvent>()
+    val events: SharedFlow<GameUiEvent> = _events.asSharedFlow()
 
     private val gameCache = mutableMapOf<String, List<GameResult>>()
 
@@ -58,7 +68,7 @@ class GameViewModel : ViewModel() {
         }
     }
 
-    private fun searchGames(query: String) {
+    internal fun searchGames(query: String) {
         viewModelScope.launch {
             if (gameCache.containsKey(query)) {
                 _uiState.value = GameUiState.Success(gameCache[query] ?: emptyList())
@@ -72,8 +82,17 @@ class GameViewModel : ViewModel() {
                 gameCache[query] = results
                 _uiState.value = GameUiState.Success(results)
             } catch (e: Exception) {
-                _uiState.value = GameUiState.Error("Falha ao buscar jogos: ${e.message}")
+                _uiState.value = GameUiState.Error("Falha ao buscar jogos")
+                e.printStackTrace()
             }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun addGameToUserGames(gameResult: GameResult) {
+        viewModelScope.launch {
+            val gameToAdd = gameResult.toDomainGame()
+            _events.emit(GameUiEvent.ShowToast("Jogo '${gameToAdd.title}' adicionado à sua lista!"))
         }
     }
 }

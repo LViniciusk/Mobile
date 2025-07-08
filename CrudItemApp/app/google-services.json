@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "13849485116",
+    "project_id": "cruditemapp-91276",
+    "storage_bucket": "cruditemapp-91276.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:13849485116:android:572c022f1052a5d3a78839",
+        "android_client_info": {
+          "package_name": "com.example.cruditemapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCO1z3gyBRLkEZgK6fOk9jflncrVhYFnmg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

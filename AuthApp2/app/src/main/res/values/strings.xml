@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AuthApp2</string>
+    <string name="default_web_client_id">AuthApp2</string>
+</resources>

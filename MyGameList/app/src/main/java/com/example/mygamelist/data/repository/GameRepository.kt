@@ -11,7 +11,9 @@ import com.example.mygamelist.data.model.GameDetail
 import com.example.mygamelist.data.model.toDomainGame
 import com.example.mygamelist.data.model.toDomainGameDetail
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -163,12 +165,34 @@ class GameRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getAllUserSavedGames(userId: String): Flow<List<Game>> {
-        return gameDao.getAllUserGames(userId)
+    override fun getAllUserSavedGames(userId: String): Flow<List<Game>> = callbackFlow {
+        if (userId.isEmpty()) {
+            trySend(emptyList())
+            awaitClose()
+            return@callbackFlow
+        }
+
+        val subscription = getUserGamesFirestoreCollection(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (snapshot != null) {
+                    trySend(snapshot.toObjects(Game::class.java))
+                } else {
+                    Log.e("GameRepository", "Erro ao ouvir lista de jogos", error)
+                    trySend(emptyList())
+                }
+            }
+
+        awaitClose { subscription.remove() }
     }
 
     override suspend fun getUserGameById(gameId: Int, userId: String): Game? {
-        return gameDao.getUserGameById(gameId, userId)
+        return try {
+            val document = getUserGamesFirestoreCollection(userId).document(gameId.toString()).get().await()
+            document.toObject(Game::class.java)
+        } catch (e: Exception) {
+            Log.e("GameRepository", "Erro ao buscar jogo único do Firestore para review", e)
+            null
+        }
     }
 
     override suspend fun isGameSavedLocally(gameId: Int, userId: String): Boolean {

@@ -1,5 +1,6 @@
 package com.example.mygamelist.ui.screens
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -59,6 +60,11 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+
+    LaunchedEffect(key1 = uiState.user) {
+        Log.d("DEBUG_PROFILE", "ProfileScreen LaunchedEffect triggered. User in state is: ${uiState.user?.username}. Calling reloadData().")
+        viewModel.reloadData()
+    }
 
     var searchQueryState by remember { mutableStateOf(TextFieldValue(uiState.searchQuery)) }
 
@@ -176,25 +182,7 @@ fun ProfileScreen(
                                 )
                             }
                         )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    "Baixar minha lista",
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            },
-                            onClick = {
-                                viewModel.onDownloadListClick()
-                                showProfileMenu = false
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Filled.FileDownload,
-                                    contentDescription = "Baixar minha lista",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        )
+
                     }
                 }
             }else {

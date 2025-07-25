@@ -58,13 +58,14 @@ class ProfileViewModel @Inject constructor(
     private var dataLoadingJob: Job? = null
 
     init {
+        Log.d("DEBUG_PROFILE", "--- ProfileViewModel INSTANCE CREATED ---")
         viewModelScope.launch {
             authRepository.getCurrentUser().collect { firebaseUser ->
                 dataLoadingJob?.cancel()
-
                 if (firebaseUser == null) {
                     _uiState.value = ProfileScreenState(isLoading = false)
                 } else {
+                    Log.d("DEBUG_PROFILE", "Auth state changed. User: ${firebaseUser.uid}. Triggering reloadData().")
                     reloadData()
                 }
             }
@@ -72,10 +73,14 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun reloadData() {
+        dataLoadingJob?.cancel()
         dataLoadingJob = viewModelScope.launch {
             val profileUserId: String? = savedStateHandle.get<String>("userId")
             val currentUserId = authRepository.getCurrentUserId() ?: ""
             val userIdToLoad = profileUserId ?: currentUserId
+
+            Log.d("DEBUG_PROFILE", "reloadData() CALLED. profileUserId from nav: '$profileUserId', currentUserId: '$currentUserId', userIdToLoad: '$userIdToLoad'")
+
 
             if (userIdToLoad.isEmpty()) {
                 _uiState.update { it.copy(isLoading = false, error = "Usuário não identificado.") }
@@ -145,6 +150,7 @@ class ProfileViewModel @Inject constructor(
             userRepository.getUserProfile(userId)
                 .onEach { user ->
                     if (user != null) {
+                        Log.d("DEBUG_PROFILE", "observeUserProfile SUCCESS for ${user.username} (ID: $userId)")
                         _uiState.update { it.copy(
                             user = user,
                             isLoading = false,
@@ -174,6 +180,7 @@ class ProfileViewModel @Inject constructor(
 
     private fun observeUserGamesAndFilter(userId: String) {
         viewModelScope.launch {
+            Log.d("DEBUG_PROFILE", "observeUserGamesAndFilter CALLED for userId: $userId")
             gameRepository.getAllUserSavedGames(userId)
                 .combine(_uiState.map { it.searchQuery }.distinctUntilChanged()) { savedGames, searchQuery ->
                     if (searchQuery.isBlank()) {
@@ -185,6 +192,7 @@ class ProfileViewModel @Inject constructor(
                     }
                 }
                 .onEach { filteredGames ->
+                    Log.d("DEBUG_PROFILE", "Found ${filteredGames.size} games for userId: $userId")
                     _uiState.update { it.copy(userGames = filteredGames) }
                     updateUserStats(filteredGames)
                 }
@@ -211,11 +219,6 @@ class ProfileViewModel @Inject constructor(
         _uiState.update { it.copy(searchQuery = query) }
     }
 
-    fun onDownloadListClick() {
-        viewModelScope.launch {
-            _events.emit(ProfileUiEvent.ShowToast("Ação: Baixar lista de jogos do usuário. (TODO: Implementar)"))
-        }
-    }
 
     fun onDisplayNameChange(newName: String) {
         _uiState.update { it.copy(displayName = newName) }

@@ -153,7 +153,8 @@ internal fun UserListItem(
                 .size(56.dp)
                 .clip(CircleShape)
                 .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
-            placeholder = painterResource(id = R.drawable.avatar_placeholder)
+            placeholder = painterResource(id = R.drawable.avatar_placeholder),
+            error = painterResource(id = R.drawable.avatar_placeholder)
         )
 
         Spacer(Modifier.width(12.dp))

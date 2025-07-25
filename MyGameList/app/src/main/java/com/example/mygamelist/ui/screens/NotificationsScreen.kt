@@ -1,60 +1,108 @@
 package com.example.mygamelist.ui.screens
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.example.mygamelist.R
+import com.example.mygamelist.data.model.Notification
+import com.example.mygamelist.viewmodel.NotificationsViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotificationsScreen(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 24.dp)
-    ) {
+fun NotificationsScreen(
+    onUserClicked: (String) -> Unit,
+    viewModel: NotificationsViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
 
-        Text(
-            text = "Notificações",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-
-        Text(
-            text = "Você ainda não tem nenhuma notificação.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("Notificações") })
+        }
+    ) { padding ->
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .padding(padding)
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_notifications_placeholder),
-                contentDescription = "Nenhuma notificação",
-                modifier = Modifier.size(120.dp)
+            if (uiState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            } else if (uiState.error != null) {
+                Text(
+                    text = "Erro: ${uiState.error}",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else if (uiState.notifications.isEmpty()) {
+                Text(
+                    text = "Nenhuma notificação ainda.",
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.notifications) { notification ->
+                        NotificationItem(
+                            notification = notification,
+                            onUserClicked = { onUserClicked(notification.actorId) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationItem(
+    notification: Notification,
+    onUserClicked: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onUserClicked,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = notification.actorProfileImageUrl,
+                contentDescription = "Foto de ${notification.actorName}",
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape),
+                placeholder = painterResource(id = R.drawable.avatar_placeholder)
             )
+            Spacer(Modifier.width(12.dp))
+
+            val notificationText = buildAnnotatedString {
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(notification.actorName)
+                }
+                append(" começou a seguir você.")
+            }
+            Text(text = notificationText, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

@@ -1,128 +1,287 @@
 package com.example.mygamelist.viewmodel
 
-
+import android.net.Uri
+import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.mygamelist.R
 import com.example.mygamelist.data.model.Game
 import com.example.mygamelist.data.model.GameStatus
 import com.example.mygamelist.data.model.User
 import com.example.mygamelist.data.model.UserStats
+import com.example.mygamelist.data.repository.AuthRepository
+import com.example.mygamelist.data.repository.GameRepository
+import com.example.mygamelist.data.repository.ImgurRepository
+import com.example.mygamelist.data.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+
 data class ProfileScreenState(
     val user: User? = null,
+    val isMyProfile: Boolean = false,
+    val isFollowing: Boolean = false,
     val userGames: List<Game> = emptyList(),
     val searchQuery: String = "",
-    val isLoading: Boolean = false,
-    val error: String? = null
+    val isLoading: Boolean = true,
+    val error: String? = null,
+    val userStats: UserStats = UserStats(),
+    val displayName: String = "",
+    val bio: String = "",
+    val selectedProfileImageUri: Uri? = null,
+    val isSavingProfile: Boolean = false
 )
+
+
+sealed class ProfileUiEvent {
+    data class ShowToast(val message: String) : ProfileUiEvent()
+}
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
+    private val gameRepository: GameRepository,
+    private val authRepository: AuthRepository,
+    private val userRepository: UserRepository,
+    private val imgurRepository: ImgurRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileScreenState())
-    private val _events = MutableSharedFlow<ProfileUiEvent>()
     val uiState: StateFlow<ProfileScreenState> = _uiState.asStateFlow()
+
+    private val _events = MutableSharedFlow<ProfileUiEvent>()
     val events: SharedFlow<ProfileUiEvent> = _events.asSharedFlow()
 
+    private var dataLoadingJob: Job? = null
+
     init {
-        loadUserProfile()
-        observeUiStateAndFilterGames()
-    }
-
-    private fun loadUserProfile() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                val currentUser = User(
-                    id = 1,
-                    name = "Vinicius",
-                    username = "lviniciusk",
-                    quote = "jalp",
-                    stats = UserStats(
-                        todos = 6,
-                        concluidos = 2,
-                        jogando = 2,
-                        abandonados = 1,
-                        desejados = 1
-                    ),
-                    avatarUrl = "https://mygamelist.club/avatars/682f8010da749fdfd6e1f9f1-Hb41cgGP",
-                    userGames = listOf(
-                        Game(1, "The Witcher 3: Wild Hunt", "https://media.rawg.io/media/games/618/618c2031a07bbff6b4f611f10b6bcdbc.jpg", "2015", 92, "RPG", GameStatus.JOGANDO),
-                        Game(2, "Grand Theft Auto V", "https://media.rawg.io/media/games/20a/20aa03a10cda45239fe22d035c0ebe64.jpg", "2013", 92, "Action", GameStatus.CONCLUIDO),
-                        Game(3, "Portal 2", "https://media.rawg.io/media/games/2ba/2bac0e87cf45e5b508f227d281c9252a.jpg", "2011", 95, "Puzzle", GameStatus.JOGANDO),
-                        Game(4, "Red Dead Redemption 2", "https://media.rawg.io/media/games/511/5118aff5091cb3efec399c808f8c598f.jpg", "2018", 96, "Action", GameStatus.DESEJO),
-                        Game(5, "The Elder Scrolls V: Skyrim", "https://media.rawg.io/media/games/7cf/7cfc9220b401b7a300e409e539c9afd5.jpg", "2011", 94, "RPG", GameStatus.CONCLUIDO),
-                        Game(6, "Life is Strange", "https://media.rawg.io/media/games/562/562553814dd54e001a541e4ee83a591c.jpg", "2015", 83, "Adventure", GameStatus.ABANDONADO)
-                    ),
-                    followersCount = 0,
-                    followingCount = 0
-                )
+            authRepository.getCurrentUser().collect { firebaseUser ->
+                dataLoadingJob?.cancel()
 
-                _uiState.value = _uiState.value.copy(
-                    user = currentUser,
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Falha ao carregar perfil: ${e.localizedMessage}"
-                )
-                e.printStackTrace()
+                if (firebaseUser == null) {
+                    _uiState.value = ProfileScreenState(isLoading = false)
+                } else {
+                    reloadData()
+                }
             }
         }
     }
 
-    private fun observeUiStateAndFilterGames() {
+    fun reloadData() {
+        dataLoadingJob = viewModelScope.launch {
+            val profileUserId: String? = savedStateHandle.get<String>("userId")
+            val currentUserId = authRepository.getCurrentUserId() ?: ""
+            val userIdToLoad = profileUserId ?: currentUserId
+
+            if (userIdToLoad.isEmpty()) {
+                _uiState.update { it.copy(isLoading = false, error = "Usuário não identificado.") }
+                return@launch
+            }
+
+            _uiState.update { it.copy(
+                isLoading = true,
+                isMyProfile = profileUserId == null || profileUserId == currentUserId
+            )}
+
+            observeUserProfile(userIdToLoad)
+            observeUserGamesAndFilter(userIdToLoad)
+
+            if (!_uiState.value.isMyProfile) {
+                observeFollowingStatus(currentUserId, userIdToLoad)
+            }
+        }
+    }
+
+    private fun observeFollowingStatus(currentUserId: String, targetUserId: String) {
         viewModelScope.launch {
+            userRepository.isFollowing(currentUserId, targetUserId).collect { isFollowing ->
+                _uiState.update { it.copy(isFollowing = isFollowing) }
+            }
+        }
+    }
 
-            _uiState
-                .distinctUntilChanged { old, new ->
+    fun follow() {
+        viewModelScope.launch {
+            val profileUserId = savedStateHandle.get<String>("userId")
+            val currentUserId = authRepository.getCurrentUserId()
+            if (currentUserId == null || profileUserId == null) return@launch
 
-                    old.searchQuery == new.searchQuery && old.user?.userGames == new.user?.userGames
+            try {
+                val currentUser = userRepository.getUserProfile(currentUserId).first()
+                if (currentUser != null) {
+                    userRepository.followUser(
+                        currentUserId = currentUser.id,
+                        currentUserName = currentUser.name,
+                        currentUserImageUrl = currentUser.profileImageUrl,
+                        targetUserId = profileUserId
+                    )
                 }
-                .collect { currentState ->
+            } catch (e: Exception) {
+                _events.emit(ProfileUiEvent.ShowToast("Erro ao tentar seguir: ${e.message}"))
+            }
+        }
+    }
 
-                    val rawGames = currentState.user?.userGames ?: emptyList()
+    fun unfollow() {
+        viewModelScope.launch {
+            val profileUserId = savedStateHandle.get<String>("userId")
+            val currentUserId = authRepository.getCurrentUserId()
+            if (currentUserId == null || profileUserId == null) return@launch
 
-                    val filteredGames = if (currentState.searchQuery.isBlank()) {
-                        rawGames
+            try {
+                userRepository.unfollowUser(currentUserId, profileUserId)
+            } catch (e: Exception) {
+                _events.emit(ProfileUiEvent.ShowToast("Erro ao deixar de seguir: ${e.message}"))
+            }
+        }
+    }
+
+    private fun observeUserProfile(userId: String) {
+        viewModelScope.launch {
+            userRepository.getUserProfile(userId)
+                .onEach { user ->
+                    if (user != null) {
+                        _uiState.update { it.copy(
+                            user = user,
+                            isLoading = false,
+                            error = null,
+                            displayName = user.name,
+                            bio = user.quote
+                        )}
+                        Log.d("ProfileViewModel", "Perfil do usuário ${user.username} carregado.")
                     } else {
-                        rawGames.filter {
-                            it.title.contains(currentState.searchQuery, ignoreCase = true)
+                        _uiState.update { it.copy(
+                            isLoading = false,
+                            error = "Perfil não encontrado no Firestore."
+                        )}
+                        Log.w("ProfileViewModel", "Perfil não encontrado para UID: $userId")
+                    }
+                }
+                .catch { e ->
+                    Log.e("ProfileViewModel", "Erro ao carregar perfil: ${e.localizedMessage}", e)
+                    _uiState.update { it.copy(
+                        isLoading = false,
+                        error = e.localizedMessage ?: "Erro ao carregar perfil."
+                    )}
+                }
+                .launchIn(viewModelScope)
+        }
+    }
+
+    private fun observeUserGamesAndFilter(userId: String) {
+        viewModelScope.launch {
+            gameRepository.getAllUserSavedGames(userId)
+                .combine(_uiState.map { it.searchQuery }.distinctUntilChanged()) { savedGames, searchQuery ->
+                    if (searchQuery.isBlank()) {
+                        savedGames
+                    } else {
+                        savedGames.filter {
+                            it.title.contains(searchQuery, ignoreCase = true)
                         }
                     }
-
-                    if (filteredGames != currentState.userGames) {
-                        _uiState.value = currentState.copy(userGames = filteredGames)
-                    }
                 }
+                .onEach { filteredGames ->
+                    _uiState.update { it.copy(userGames = filteredGames) }
+                    updateUserStats(filteredGames)
+                }
+                .catch { e ->
+                    _uiState.update { it.copy(error = e.localizedMessage ?: "Erro ao carregar jogos salvos.") }
+                }
+                .launchIn(viewModelScope)
         }
+    }
+
+    private fun updateUserStats(games: List<Game>) {
+        val allGames = games.size
+        val completedGames = games.count { it.status == GameStatus.CONCLUIDO }
+        val playingGames = games.count { it.status == GameStatus.JOGANDO }
+        val droppedGames = games.count { it.status == GameStatus.ABANDONADO }
+        val wishGames = games.count { it.status == GameStatus.DESEJO }
+
+        _uiState.update { it.copy(
+            userStats = UserStats(allGames, completedGames, playingGames, droppedGames, wishGames)
+        )}
     }
 
     fun onSearchQueryChanged(query: String) {
-        _uiState.value = _uiState.value.copy(searchQuery = query)
+        _uiState.update { it.copy(searchQuery = query) }
     }
-
 
     fun onDownloadListClick() {
         viewModelScope.launch {
-            _events.emit(ProfileUiEvent.ShowToast("Baixando a Lista")) // <-- Emite o evento
+            _events.emit(ProfileUiEvent.ShowToast("Ação: Baixar lista de jogos do usuário. (TODO: Implementar)"))
         }
     }
-}
 
-sealed class ProfileUiEvent {
-    data class ShowToast(val message: String) : ProfileUiEvent()
+    fun onDisplayNameChange(newName: String) {
+        _uiState.update { it.copy(displayName = newName) }
+    }
+
+    fun onBioChange(newBio: String) {
+        _uiState.update { it.copy(bio = newBio) }
+    }
+
+    fun onProfileImageSelected(uri: Uri?) {
+        _uiState.update { it.copy(selectedProfileImageUri = uri) }
+    }
+
+    fun saveProfile() {
+        viewModelScope.launch {
+            if (!_uiState.value.isMyProfile) return@launch
+
+            _uiState.update { it.copy(isSavingProfile = true, error = null) }
+            val userId = authRepository.getCurrentUserId() ?: run {
+                _uiState.update { it.copy(isSavingProfile = false, error = "Usuário não logado.") }
+                _events.emit(ProfileUiEvent.ShowToast("Erro: Usuário não logado."))
+                return@launch
+            }
+
+            try {
+                val imageUrl = _uiState.value.selectedProfileImageUri?.let { uri ->
+                    imgurRepository.uploadImage(uri)
+                } ?: _uiState.value.user?.profileImageUrl
+
+                val updatedUser = _uiState.value.user?.copy(
+                    name = _uiState.value.displayName,
+                    quote = _uiState.value.bio,
+                    profileImageUrl = imageUrl
+                )
+
+                if (updatedUser != null) {
+                    userRepository.saveUserProfile(updatedUser)
+                    _uiState.update { it.copy(isSavingProfile = false, user = updatedUser, selectedProfileImageUri = null) }
+                    _events.emit(ProfileUiEvent.ShowToast("Perfil salvo com sucesso!"))
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSavingProfile = false, error = e.localizedMessage) }
+                _events.emit(ProfileUiEvent.ShowToast("Erro ao salvar perfil: ${e.localizedMessage}"))
+            }
+        }
+    }
+
+    fun resetProfile() {
+        viewModelScope.launch {
+            if (!_uiState.value.isMyProfile) return@launch
+
+            val userId = authRepository.getCurrentUserId() ?: return@launch
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                userRepository.getUserProfile(userId).first()?.let { user ->
+                    _uiState.update { it.copy(
+                        displayName = user.name,
+                        bio = user.quote,
+                        selectedProfileImageUri = null,
+                        isLoading = false
+                    )}
+                    _events.emit(ProfileUiEvent.ShowToast("Campos resetados."))
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.localizedMessage) }
+            }
+        }
+    }
 }

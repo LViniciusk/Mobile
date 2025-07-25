@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "833156260662",
+    "project_id": "mygamelist-330e1",
+    "storage_bucket": "mygamelist-330e1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:833156260662:android:7db3533e9382fb218dc997",
+        "android_client_info": {
+          "package_name": "com.example.mygamelist"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "833156260662-lj4ri4654j04o5bkqicvm0hdmqih6dj7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mygamelist",
+            "certificate_hash": "d260e9215f0588e2222afd391ca619c5b9b7a28a"
+          }
+        },
+        {
+          "client_id": "833156260662-l1ejutf44kgig5rke8ei4qds1uv86ti7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgD64r1IRdXB3wlTpDZWcmX94aqnw9eVQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "833156260662-l1ejutf44kgig5rke8ei4qds1uv86ti7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

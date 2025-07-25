@@ -7,17 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -27,18 +17,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.Button
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,50 +32,46 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.mygamelist.R
 import com.example.mygamelist.data.model.GameResult
-import com.example.mygamelist.viewmodel.GameUiEvent
 import com.example.mygamelist.viewmodel.GameUiState
 import com.example.mygamelist.viewmodel.GameViewModel
+import com.example.mygamelist.viewmodel.GameUiEvent
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.filled.Remove
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AddGameScreen(
     onBack: () -> Unit,
-    viewModel: GameViewModel = hiltViewModel() // Assumindo que GameViewModel também é HiltViewModel
+    onNavigateToGameDetail: (gameId: Int) -> Unit,
+    onNavigateToAddGameForm: (gameId: Int) -> Unit,
+    viewModel: GameViewModel = hiltViewModel()
 ) {
-    // Mantém o TextFieldValue no estado local do Composable para controle de cursor/seleção
     var searchQueryState by remember { mutableStateOf(TextFieldValue("")) }
+    val gameUiState by viewModel.uiState
+    val currentSearchQueryText by viewModel.searchQuery.collectAsState()
 
-    // Observa o GameUiState da ViewModel (usando .value diretamente para State<T>)
-    val gameUiState = viewModel.uiState.value
+    val context = LocalContext.current
 
-    // Coleta o StateFlow _searchQuery da ViewModel para exibir o texto da busca
-    val currentSearchQueryText by viewModel._searchQuery.collectAsState()
-
-    val context = LocalContext.current // Obtém o Context para o Toast
-
-    // Sincroniza o texto do TextFieldValue local com a query da ViewModel
-    // Garante que o TextField reflete o que a ViewModel tem, sem perder o cursor.
     LaunchedEffect(currentSearchQueryText) {
         if (searchQueryState.text != currentSearchQueryText) {
             searchQueryState = searchQueryState.copy(text = currentSearchQueryText)
         }
     }
 
-    // LaunchedEffect para observar os eventos da GameViewModel (como ShowToast)
     LaunchedEffect(key1 = Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is GameUiEvent.ShowToast -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 }
-                // Adicione outros eventos GameUiEvent aqui
             }
         }
     }
@@ -99,7 +79,7 @@ fun AddGameScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background) // Usar cor de fundo do tema
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         Row(
@@ -131,27 +111,26 @@ fun AddGameScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BasicTextField(
-                    value = searchQueryState, // Usa o estado local do TextFieldValue
+                    value = searchQueryState,
                     onValueChange = { newValue ->
                         searchQueryState = newValue
-                        viewModel.onSearchQueryChanged(newValue.text) // Passa apenas o texto para a ViewModel
+                        viewModel.onSearchQueryChanged(newValue.text)
                     },
                     singleLine = true,
                     textStyle = TextStyle(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp,
-                        textAlign = TextAlign.Start // Alinhamento à esquerda
+                        textAlign = TextAlign.Start
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier.weight(1f),
                     decorationBox = { innerTextField ->
-                        // Usa o texto do estado local para verificar se está vazia
                         if (searchQueryState.text.isEmpty()) {
                             Text(
                                 text = "Pesquise por um jogo...",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 14.sp,
-                                textAlign = TextAlign.Start // Alinhamento à esquerda para placeholder
+                                textAlign = TextAlign.Start
                             )
                         }
                         innerTextField()
@@ -168,7 +147,6 @@ fun AddGameScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Exibe "Resultados para..." apenas se houver uma query de busca (currentSearchQueryText)
         if (currentSearchQueryText.isNotEmpty()){
             Text(
                 text = "Resultados para \"${currentSearchQueryText}\"",
@@ -182,19 +160,18 @@ fun AddGameScreen(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter
         ) {
-            when (gameUiState) { // Usa gameUiState (o State<GameUiState> da ViewModel)
+            when (gameUiState) {
                 is GameUiState.Idle -> {
-                    // Exibe o placeholder se a query for menor que 3 e não houver resultados
                     if (currentSearchQueryText.length < 3) {
                         PlaceholderSearch()
                     }
-                    // Se a query for >=3 mas ainda Idle (ex: debounce esperando), não mostra nada ou um placeholder diferente
                 }
                 is GameUiState.Loading -> {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
                 is GameUiState.Success -> {
-                    val games = gameUiState.games // Acessa a lista de jogos do GameUiState.Success
+                    val games = (gameUiState as GameUiState.Success).games
+                    val userSavedIds = (gameUiState as GameUiState.Success).userSavedGameIds
                     if (games.isEmpty()) {
                         Text(
                             text = "Nenhum resultado encontrado para \"${currentSearchQueryText}\"",
@@ -203,9 +180,18 @@ fun AddGameScreen(
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             items(games) { gameResult ->
-                                GameResultItem(gameResult) { clickedGameResult ->
-                                    viewModel.addGameToUserGames(clickedGameResult)
-                                }
+                                val isAdded = userSavedIds.contains(gameResult.id)
+                                GameResultItem(
+                                    gameResult = gameResult,
+                                    isAddedToUserList = isAdded,
+                                    onToggleAddRemoveClick = { clickedGameResult, isCurrentlyAdded ->
+                                        viewModel.toggleGameInUserList(clickedGameResult, isCurrentlyAdded)
+                                        if (!isCurrentlyAdded) {
+                                            onNavigateToAddGameForm(clickedGameResult.id)
+                                        }
+                                    },
+                                    onCardClick = { clickedGameId -> onNavigateToGameDetail(clickedGameId) }
+                                )
                             }
                         }
                     }
@@ -219,12 +205,12 @@ fun AddGameScreen(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = gameUiState.message, // Acessa a mensagem do GameUiState.Error
+                            text = (gameUiState as GameUiState.Error).message,
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { viewModel.searchGames(currentSearchQueryText) }) { // Adiciona o botão de tentar novamente
+                        Button(onClick = { viewModel.searchGames(currentSearchQueryText) }) {
                             Text("Tentar Novamente")
                         }
                     }
@@ -236,9 +222,16 @@ fun AddGameScreen(
 
 
 @Composable
-private fun GameResultItem(gameResult: GameResult, onAddClick: (GameResult) -> Unit) {
+private fun GameResultItem(
+    gameResult: GameResult,
+    isAddedToUserList: Boolean,
+    onToggleAddRemoveClick: (GameResult, Boolean) -> Unit,
+    onCardClick: (Int) -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCardClick(gameResult.id) },
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
@@ -263,12 +256,12 @@ private fun GameResultItem(gameResult: GameResult, onAddClick: (GameResult) -> U
             Text(gameResult.released ?: "-", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
         Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = "Adicionar",
-            tint = MaterialTheme.colorScheme.primary,
+            imageVector = if (isAddedToUserList) Icons.Filled.Remove else Icons.Filled.Add,
+            contentDescription = if (isAddedToUserList) "Remover da lista" else "Adicionar à lista",
+            tint = if (isAddedToUserList) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
             modifier = Modifier
                 .size(24.dp)
-                .clickable { onAddClick(gameResult) }
+                .clickable { onToggleAddRemoveClick(gameResult, isAddedToUserList) }
         )
     }
 }

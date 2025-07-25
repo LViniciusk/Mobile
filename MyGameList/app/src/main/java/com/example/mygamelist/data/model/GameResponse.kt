@@ -18,11 +18,15 @@ data class GameResult(
     val metacritic: Int?,
     val updated: String,
     val genres: List<Genre>?,
+    val tags: List<Tag>?
 )
 
 data class Genre(
     val id: Int,
     val name: String,
+    val slug: String,
+    val games_count: Int,
+    val image_background: String?
 )
 
 

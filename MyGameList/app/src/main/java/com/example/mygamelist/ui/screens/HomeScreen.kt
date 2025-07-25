@@ -20,11 +20,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
@@ -70,14 +71,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
-
+import androidx.compose.material.icons.filled.Remove
+import com.example.mygamelist.viewmodel.AuthViewModel
+import androidx.compose.material.icons.filled.Logout
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToSettings: (initialTabIndex: Int) -> Unit,
+    onNavigateToGameDetail: (gameId: Int) -> Unit,
+    onNavigateToAddGameForm: (gameId: Int) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -89,6 +95,9 @@ fun HomeScreen(
             when (event) {
                 is HomeUiEvent.ShowToast -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+                is HomeUiEvent.NavigateToAddGameForm -> {
+                    onNavigateToAddGameForm(event.gameId)
                 }
             }
         }
@@ -106,7 +115,8 @@ fun HomeScreen(
                 },
                 onCloseDrawer = {
                     scope.launch { drawerState.close() }
-                }
+                },
+                authViewModel = authViewModel
             )
         }
     ) {
@@ -142,7 +152,7 @@ fun HomeScreen(
                     Spacer(Modifier.height(12.dp))
 
                     when {
-                        uiState.isLoading -> {
+                        uiState.newReleaseLoading -> {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -150,9 +160,15 @@ fun HomeScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    text = "Carregando novos lançamentos...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.offset(y = 40.dp)
+                                )
                             }
                         }
-                        uiState.error != null -> {
+                        uiState.newReleaseError != null -> {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -161,25 +177,34 @@ fun HomeScreen(
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "Erro ao carregar dados: ${uiState.error}",
+                                    text = "Erro ao carregar novos lançamentos: ${uiState.newReleaseError}",
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(bottom = 8.dp)
                                 )
-                                Button(onClick = { viewModel.loadAllGames() }) {
+                                Button(onClick = { viewModel.loadNewReleaseGames(forceRefresh = true) }) {
                                     Text("Tentar Novamente")
                                 }
                             }
                         }
                         uiState.newReleaseGames.isEmpty() -> {
-                            Text(
-                                text = "Nenhum novo lançamento encontrado.",
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Button(onClick = { viewModel.loadAllGames() }) {
-                                Text("Tentar Novamente")
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Nenhum novo lançamento encontrado.",
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Button(onClick = { viewModel.loadNewReleaseGames(forceRefresh = true) }) {
+                                    Text("Tentar Novamente")
+                                }
                             }
                         }
                         else -> {
@@ -187,10 +212,15 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(uiState.newReleaseGames) { game ->
-
-                                    ShowGameItem(game) { clickedGame ->
-                                        viewModel.addGameToUserGames(clickedGame)
-                                    }
+                                    val isAdded = uiState.userSavedGameIds.contains(game.id)
+                                    ShowGameItem(
+                                        game = game,
+                                        isAddedToUserList = isAdded,
+                                        onToggleAddRemoveClick = { clickedGame, _ ->
+                                            viewModel.toggleGameInUserList(clickedGame)
+                                        },
+                                        onCardClick = { clickedGameId -> onNavigateToGameDetail(clickedGameId) }
+                                    )
                                 }
                             }
                         }
@@ -203,23 +233,79 @@ fun HomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onBackground
                     )
+
                     Spacer(Modifier.height(12.dp))
-                    if (!uiState.isLoading && uiState.error == null && uiState.comingSoonGames.isEmpty()) {
-                        Text(
-                            text = "Nenhum jogo em breve encontrado.",
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Button(onClick = { viewModel.loadAllGames() }) {
-                            Text("Tentar Novamente")
+
+                    when {
+                        uiState.comingSoonLoading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    text = "Carregando jogos em breve...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.offset(y = 40.dp)
+                                )
+                            }
                         }
-                    } else if (!uiState.isLoading && uiState.error == null) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(uiState.comingSoonGames) { game ->
-                                ShowGameItem(game) { clickedGame ->
-                                    viewModel.addGameToUserGames(clickedGame)
+                        uiState.comingSoonError != null -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Erro ao carregar jogos em breve: ${uiState.comingSoonError}",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                Button(onClick = { viewModel.loadComingSoonGames(forceRefresh = true) }) {
+                                    Text("Tentar Novamente")
+                                }
+                            }
+                        }
+                        uiState.comingSoonGames.isEmpty() -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Nenhum jogo em breve encontrado.",
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Button(onClick = { viewModel.loadComingSoonGames(forceRefresh = true) }) {
+                                    Text("Tentar Novamente")
+                                }
+                            }
+                        }
+                        else -> {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(uiState.comingSoonGames) { game ->
+                                    val isAdded = uiState.userSavedGameIds.contains(game.id)
+                                    ShowGameItem(
+                                        game = game,
+                                        isAddedToUserList = isAdded,
+                                        onToggleAddRemoveClick = { clickedGame, _ ->
+                                            viewModel.toggleGameInUserList(clickedGame)
+                                        },
+                                        onCardClick = { clickedGameId -> onNavigateToGameDetail(clickedGameId) }
+                                    )
                                 }
                             }
                         }
@@ -235,9 +321,12 @@ fun HomeScreen(
 @Composable
 fun AppDrawerContent(
     onNavigateToSettings: (initialTabIndex: Int) -> Unit,
-    onCloseDrawer: () -> Unit
+    onCloseDrawer: () -> Unit,
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     ModalDrawerSheet(
         modifier = Modifier.fillMaxWidth(0.7f),
         drawerContainerColor = MaterialTheme.colorScheme.surface
@@ -270,6 +359,7 @@ fun AppDrawerContent(
             selected = false,
             onClick = {
                 onNavigateToSettings(1)
+                scope.launch { onCloseDrawer() }
             },
             modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
             colors = NavigationDrawerItemDefaults.colors(
@@ -280,8 +370,26 @@ fun AppDrawerContent(
         )
 
         NavigationDrawerItem(
-            icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sair", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            label = { Text("Sair", color = MaterialTheme.colorScheme.onSurface) },
+            icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sair da conta", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            label = { Text("Sair da conta", color = MaterialTheme.colorScheme.onSurface) },
+            selected = false,
+            onClick = {
+                scope.launch {
+                    onCloseDrawer()
+                    authViewModel.logout()
+                }
+            },
+            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+            colors = NavigationDrawerItemDefaults.colors(
+                unselectedContainerColor = MaterialTheme.colorScheme.surface,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+
+        NavigationDrawerItem(
+            icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Fechar aplicativo", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            label = { Text("Fechar aplicativo", color = MaterialTheme.colorScheme.onSurface) },
             selected = false,
             onClick = {
                 onCloseDrawer()
@@ -378,14 +486,23 @@ fun WelcomeBanner(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ShowGameItem(game: Game, onAddClick: (Game) -> Unit) {
+private fun ShowGameItem(
+    game: Game,
+    isAddedToUserList: Boolean,
+    onToggleAddRemoveClick: (Game, Boolean) -> Unit,
+    onCardClick: (Int) -> Unit
+) {
     Card(
         modifier = Modifier
             .width(160.dp)
-            .clip(RoundedCornerShape(12.dp)),
+            .height(260.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onCardClick(game.id) },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
             Box(
                 modifier = Modifier
                     .height(100.dp)
@@ -403,21 +520,26 @@ private fun ShowGameItem(game: Game, onAddClick: (Game) -> Unit) {
                 )
 
                 Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Adicionar à lista",
-                    tint = MaterialTheme.colorScheme.primary,
+                    imageVector = if (isAddedToUserList) Icons.Filled.Remove else Icons.Filled.Add,
+                    contentDescription = if (isAddedToUserList) "Remover da lista" else "Adicionar à lista",
+                    tint = if (isAddedToUserList) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(4.dp)
                         .size(32.dp)
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), CircleShape)
-                        .clickable { onAddClick(game) }
+                        .clickable { onToggleAddRemoveClick(game, isAddedToUserList) }
                         .padding(4.dp)
                 )
             }
 
             Spacer(Modifier.height(8.dp))
-            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
                 Text(
                     text = game.title,
                     style = MaterialTheme.typography.titleSmall,
